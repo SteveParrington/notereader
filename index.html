@@ -9,91 +9,127 @@
     <script>
       var canvas = new fabric.Canvas("c");
 
-      var START_Y = 100;
-      var INCREMENT = 20;
-      var NOTE_RADIUS = INCREMENT / 2;
-
-      var NOTES = [
-        { 
-          multiplier: -0.5,
-          letter: "f"
-        },
-        {
-          multiplier: 0,
-          letter: "e"
-        },
-        {
-          multiplier: 0.5,
-          letter: "d"
-        },
-        {
-          multiplier: 1,
-          letter: "c"
-        },
-        {
-          multiplier: 1.5,
-          letter: "b"
-        },
-        {
-          multiplier: 2,
-          letter: "a"
-        },
-        {
-          multiplier: 2.5,
-          letter: "g"
-        },
-        {
-          multiplier: 3,
-          letter: "g"
-        },
-        {
-          multiplier: 3.5,
-          letter: "e"
-        }
-      ];
-
-      for(var i = 0; i < 5; i++) {
-        var y = START_Y + (i * INCREMENT);
-        var line = new fabric.Line([100, y, 900, y], {
-          stroke: 'black',
-          selectable: false
-        });
-        canvas.add(line);
+      var GeometryConfig = function() {
+        this.startX = 100,
+        this.startY = 100,
+        this.length = 1000,
+        this.increment = this.length / 50,
+        this.noteRadius = this.increment / 2
       }
+      var geometryConfig = new GeometryConfig();
 
-      var limitLine = new fabric.Line([200, START_Y - (0.5 * INCREMENT), 200, START_Y + (4.5 * INCREMENT)], {
-        strokeDashArray: [5, 5],
-        stroke: 'black',
-        selectable: false
-      });
+      var Staff = function(canvas, geometryConfig, startX, startY, length) {
+        this.canvas = canvas;
+        this.geometryConfig = geometryConfig;
 
-      canvas.add(limitLine);
+        this.drawStaff = function() {
+          for(var i = 0; i < 5; i++) {
+            var y = this.geometryConfig.startY + (i * this.geometryConfig.increment);
+            var line = new fabric.Line([this.geometryConfig.startX, y, this.geometryConfig.length, y], {
+              stroke: 'black',
+              selectable: false
+            });
+            canvas.add(line);
+          }
+        };
 
-      drawNote = function(note) {
-        var circle = new fabric.Circle({
-          left: 900,
-          top: START_Y + (note.multiplier * INCREMENT),
-          radius: NOTE_RADIUS,
+        this.drawStaff();
+
+        this.animateComplete = function(note) {
+          this.canvas.remove(note.circle);
+          this.noteQueue.shift();
+        };
+
+        this.animateNote = function(note) {
+          var staff = this;
+
+          note.circle.animate('left', '-=' + (this.geometryConfig.length + this.geometryConfig.noteRadius), {
+            onChange: canvas.renderAll.bind(canvas),
+            duration: this.geometryConfig.length * 10,
+            easing: function(t, b, c, d) { return c * t / d + b; },
+            onComplete: function() {
+              staff.animateComplete(note);
+            }
+          });
+        };
+
+        this.drawNote = function(note) {
+          canvas.add(note.circle);
+          this.animateNote(note);
+        };
+
+        this.noteQueue = [];
+
+        this.enqueueNote = function(note) {
+          this.noteQueue.push(note);
+          this.drawNote(note);
+        };
+
+        this.guessNote = function(noteString) {
+          var note = this.noteQueue[0];
+          if (note.noteString === noteString) {
+            note.noteGuessedCorrectly(); 
+            this.noteQueue.shift();
+          } else {
+            note.noteGuessedIncorrectly();
+          }
+        };
+      };
+
+      var Note = function(definition, geometryConfig) {
+        this.noteString = definition.noteString;
+        this.multiplier = definition.multiplier;
+        this.geometryConfig = geometryConfig;
+        this.circle = new fabric.Circle({
+          left: geometryConfig.startX + geometryConfig.length,
+          top: geometryConfig.startY + (this.multiplier * geometryConfig.increment),
+          radius: geometryConfig.noteRadius,
           fill: 'black',
           selectable: false
         });
-        canvas.add(circle);
-        circle.animate('left', '-=700', {
-          onChange: canvas.renderAll.bind(canvas),
-          duration: 7000,
-          easing: function(t, b, c, d) { return c * t / d + b; },
-          onComplete: function() {
-            circle.fill = 'red'; 
-            circle.animate('left', '-=100', {
-              onChange: canvas.renderAll.bind(canvas),
-              easing: function(t, b, c, d) { return c * t / d + b; },
-              duration: 1000
-            });
-          }
-        });
+
+        this.noteGuessedCorrectly = function() {
+          this.circle.fill = 'green';
+        }
+
+        this.noteGuessedIncorrectly = function() {
+          this.circle.fill = 'red';
+        }
+
+        this.reset = function() {
+          this.circle.left = this.geometryConfig.startX + geometryConfig.length;
+          this.circle.top = this.geometryConfig.startY +
+            (this.multiplier * geometryConfig.increment);
+          this.circle.fill = 'black';
+        }
       };
-      
-      drawNote(NOTES[Math.floor(Math.random() * NOTES.length)]);
+
+      var staff = new Staff(canvas, geometryConfig);
+
+      var NoteGenerator = function(staff, tickTime) {
+        this.noteDefinitions = [
+          { noteString: "f", multiplier: -0.5 },
+          { noteString: "e", multiplier: 0 },
+          { noteString: "d", multiplier: 0.5 },
+          { noteString: "c", multiplier: 1 },
+          { noteString: "b", multiplier: 1.5 },
+          { noteString: "a", multiplier: 2 },
+          { noteString: "g", multiplier: 2.5 },
+          { noteString: "f", multiplier: 3 },
+          { noteString: "e", multiplier: 3.5 },
+        ];
+
+        this.staff = staff;
+
+        this.createNote = function(noteDefinitions) {
+          var noteDefinition = noteDefinitions[Math.floor(Math.random() * noteDefinitions.length)];
+          this.staff.enqueueNote(new Note(noteDefinition, geometryConfig));
+        }
+        
+        window.setInterval(this.createNote, tickTime, this.noteDefinitions);
+      }
+
+      var noteGenerator = new NoteGenerator(staff, 1000);
     </script>
   </body>
 </html>

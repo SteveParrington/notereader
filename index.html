@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>NoteReader</title>
+  </head>
+  <body>
+    <canvas width="1000" height="400" id="c"></canvas>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/1.5.0/fabric.min.js"></script>
+    <script>
+      var canvas = new fabric.Canvas("c");
+
+      var START_Y = 100;
+      var INCREMENT = 20;
+      var NOTE_RADIUS = INCREMENT / 2;
+
+      var NOTES = [
+        { 
+          multiplier: -0.5,
+          letter: "f"
+        },
+        {
+          multiplier: 0,
+          letter: "e"
+        },
+        {
+          multiplier: 0.5,
+          letter: "d"
+        },
+        {
+          multiplier: 1,
+          letter: "c"
+        },
+        {
+          multiplier: 1.5,
+          letter: "b"
+        },
+        {
+          multiplier: 2,
+          letter: "a"
+        },
+        {
+          multiplier: 2.5,
+          letter: "g"
+        },
+        {
+          multiplier: 3,
+          letter: "g"
+        },
+        {
+          multiplier: 3.5,
+          letter: "e"
+        }
+      ];
+
+      for(var i = 0; i < 5; i++) {
+        var y = START_Y + (i * INCREMENT);
+        var line = new fabric.Line([100, y, 900, y], {
+          stroke: 'black',
+          selectable: false
+        });
+        canvas.add(line);
+      }
+
+      var limitLine = new fabric.Line([200, START_Y - (0.5 * INCREMENT), 200, START_Y + (4.5 * INCREMENT)], {
+        strokeDashArray: [5, 5],
+        stroke: 'black',
+        selectable: false
+      });
+
+      canvas.add(limitLine);
+
+      drawNote = function(note) {
+        var circle = new fabric.Circle({
+          left: 900,
+          top: START_Y + (note.multiplier * INCREMENT),
+          radius: NOTE_RADIUS,
+          fill: 'black',
+          selectable: false
+        });
+        canvas.add(circle);
+        circle.animate('left', '-=700', {
+          onChange: canvas.renderAll.bind(canvas),
+          duration: 7000,
+          easing: function(t, b, c, d) { return c * t / d + b; },
+          onComplete: function() {
+            circle.fill = 'red'; 
+            circle.animate('left', '-=100', {
+              onChange: canvas.renderAll.bind(canvas),
+              easing: function(t, b, c, d) { return c * t / d + b; },
+              duration: 1000
+            });
+          }
+        });
+      };
+      
+      drawNote(NOTES[Math.floor(Math.random() * NOTES.length)]);
+    </script>
+  </body>
+</html>
